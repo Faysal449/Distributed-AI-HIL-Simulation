@@ -1,0 +1,12 @@
+camera:
+  type: "sensor.camera.rgb"
+  width: 80
+  height: 60
+  fov: 90
+  fps: 5
+
+lidar:
+  enabled: false
+  channels: 32
+  range: 50
+  rotation_frequency: 10
