@@ -1,0 +1,9 @@
+carla:
+  host: "192.168.0.102"
+  port: 2000
+  timeout: 20.0
+
+simulation:
+  no_rendering_mode: true
+  synchronous_mode: false
+  fixed_delta_seconds: 0.05
