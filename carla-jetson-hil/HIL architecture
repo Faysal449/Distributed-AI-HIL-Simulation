@@ -1,0 +1,11 @@
+CARLA simulator (PC)
+        ↓
+RGB camera sensor
+        ↓
+Network streaming (TCP)
+        ↓
+Jetson Nano edge device
+        ↓
+TensorRT inference
+        ↓
+Object detections
