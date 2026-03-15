@@ -78,9 +78,8 @@ Programming Language	Python
 Image Processing	OpenCV
 
 Author
-
 Faysal Ahammed Tonmoy
-
 BSc, Electronic Engineering 
+Hochschule Hamm-Lippstadt
 
 Embedded Systems | Edge AI | Autonomous Systems
