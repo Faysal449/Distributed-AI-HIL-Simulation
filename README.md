@@ -47,24 +47,16 @@ The frame is transmitted via TCP socket to the Jetson Nano.
 Packet structure:
 | Frame ID | Timestamp | Image Size | JPEG Image Data |
 
-Frame Processing on Jetson
-
+Frame Processing on Jetson:
 The Jetson Nano performs the following steps:
-
 Receive image frame via TCP
-
 Decode JPEG image
-
 Convert image to CUDA memory
-
 Run object detection
-
 Return detection feedback
-
 AI Model Running on Jetson Nano
 
 The object detection model used is:
-
 SSD-Mobilenet-V2
 Model Details
 Feature	Description
