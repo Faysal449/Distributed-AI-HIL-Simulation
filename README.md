@@ -23,7 +23,7 @@ Python CARLA Client
         │
         │ JPEG Encoding
         ▼
-TCP Socket Communication
+TCP/UDP Socket Communication
         │
         │ Ethernet / WiFi Network
         ▼
@@ -37,19 +37,19 @@ AI Object Detection
 Detection Results / Feedback
 
 Communication Process:
-The system uses TCP socket communication between the PC and the Jetson Nano.
+The system uses  both TCP/UDP socket communication between the PC and the Jetson Nano.
 Frame Transmission
 CARLA generates camera frames.
 The PC sender script converts the frame into a NumPy image.
 The image is compressed using JPEG encoding.
-The frame is transmitted via TCP socket to the Jetson Nano.
+The frame is transmitted via TCP/UDP socket to the Jetson Nano.
 
 Packet structure:
 | Frame ID | Timestamp | Image Size | JPEG Image Data |
 
 Frame Processing on Jetson:
 The Jetson Nano performs the following steps:
-Receive image frame via TCP
+Receive image frame via TCP/UDP
 Decode JPEG image
 Convert image to CUDA memory
 Run object detection
