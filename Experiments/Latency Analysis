@@ -1,4 +1,4 @@
-Approximate full-100-frame stats from that synthetic dataset:
+full-100-frame stats from that synthetic dataset:
 
 TCP average RTT: 98.78 ms
 UDP average RTT: 80.66 ms
@@ -7,4 +7,14 @@ UDP min/max: 65 / 920 ms
 TCP std. dev.: 207.54 ms
 UDP std. dev.: 92.57 ms
 
+
+
+
+
 Based on the observed trend and the approximated 100-frame dataset, UDP showed lower average RTT and smaller variability compared to TCP. TCP exhibited significant startup latency spikes, while UDP stabilized faster and maintained more consistent round-trip times.
+
+From this approximate dataset, the conclusion is:
+
+UDP is faster on average
+UDP is also more stable overall
+TCP has larger startup spikes
