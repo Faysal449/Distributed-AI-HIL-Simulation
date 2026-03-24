@@ -91,6 +91,7 @@ Jetson inference time (~37–45 ms) contributes significantly to total latency
 Author
 
 Faysal Ahammed Tonmoy
+
 BSc Electronic Engineering
 Hochschule Hamm-Lippstadt
 
