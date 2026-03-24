@@ -55,6 +55,7 @@ Run TensorRT inference
 Output detection results
 
 AI Model (Jetson Nano):
+
 Feature	Description
 Model	SSD-Mobilenet-V2
 Dataset	MS COCO
@@ -64,13 +65,21 @@ Precision	FP16
 Input Size	300 × 300
 
 Technologies Used:
+
 Component	Technology
+
 Simulator	CARLA
+
 Edge Hardware	NVIDIA Jetson Nano
+
 AI Runtime	TensorRT
+
 Model	SSD-Mobilenet-V2
+
 Communication	TCP / UDP Sockets
+
 Programming	Python
+
 Image Processing	OpenCV
 
 Key Insights
