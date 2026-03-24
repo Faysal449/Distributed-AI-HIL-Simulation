@@ -1,0 +1,19 @@
+| Frame ID | RTT (ms) | Inference (ms) | Detections | Note |
+|---------:|---------:|---------------:|-----------:|------|
+| 7622 | 920.81 | 40.04 | 0 | Startup spike |
+| 7653 | 436.40 | 39.84 | 0 | Startup spike |
+| 7684 | 125.62 | 47.77 | 0 | Startup settling |
+| 7714 | 134.45 | 48.79 | 0 | Startup settling |
+| 7745 | 68.15 | 45.05 | 1 | Steady-state |
+| 7775 | 64.64 | 44.49 | 0 | Steady-state |
+| 7805 | 69.55 | 44.41 | 0 | Steady-state |
+| 7836 | 68.41 | 44.23 | 0 | Steady-state |
+| 7864 | 71.04 | 44.50 | 0 | Steady-state |
+| 7895 | 67.53 | 45.09 | 1 | Steady-state |
+| 7927 | 69.31 | 44.48 | 0 | Steady-state |
+| 7957 | 66.98 | 44.05 | 0 | Steady-state |
+| 7988 | 64.54 | 43.79 | 0 | Steady-state |
+| 8019 | 65.51 | 41.49 | 1 | Steady-state |
+| 8050 | 59.33 | 37.60 | 1 | Steady-state |
+| 8081 | 59.10 | 37.28 | 0 | Steady-state |
+| 8113 | 57.11 | 38.50 | 3 | Steady-state |
