@@ -1,4 +1,5 @@
 Distributed Edge-AI Hardware-in-the-Loop (HIL) Simulation using CARLA & Jetson Nano
+
 Overview
 This project implements a Distributed Hardware-in-the-Loop (HIL) simulation framework where a CARLA simulator running on a PC streams camera frames to an NVIDIA Jetson Nano edge device for real-time AI inference. Two object detection models — SSD-MobileNet-V2 and YOLOv8 — are deployed and benchmarked on the Jetson Nano to evaluate inference performance under realistic edge conditions.
 The objective is to replicate a real autonomous vehicle architecture, where sensor data is processed on an embedded edge system under realistic network conditions.
@@ -50,9 +51,13 @@ Packet Structure:
 Frame Processing (Jetson Nano)
 
 Receive frame via TCP/UDP
+
 Decode JPEG image
+
 Convert to CUDA memory
+
 Run TensorRT inference (SSD-MobileNet-V2 or YOLOv8)
+
 Output detection results
 
 AI Models (Jetson Nano)
