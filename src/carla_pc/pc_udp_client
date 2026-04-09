@@ -1,0 +1,119 @@
+import socket
+import cv2
+import time
+import threading
+import struct
+import csv
+import os
+from datetime import datetime
+
+JETSON_IP = "192.168.0.102"
+JETSON_PORT = 5005
+PC_PORT = 5006
+
+SEND_FPS = 15
+JPEG_QUALITY = 60
+MAX_FRAMES = 200
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(("", PC_PORT))
+
+cap = cv2.VideoCapture(0)
+seq = 0
+
+
+CSV_COLUMNS = [
+    "protocol", "frame", "pc_send_time", "jetson_recv_time",
+    "jetson_done_time", "pc_feedback_time", "inference_ms",
+    "round_trip_ms", "count", "jpeg_bytes", "recv_count"
+]
+results = []
+results_lock = threading.Lock()
+
+send_times = {}         # seq -> (send_time, jpeg_bytes)
+send_times_lock = threading.Lock()
+recv_count = 0
+
+def save_csv():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"udp_latency_results_{timestamp}.csv"
+    with open(filename, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        with results_lock:
+            writer.writerows(results)
+    print(f"[SAVED] {len(results)} rows → {filename}")
+
+def send_frames():
+    global seq
+
+    while seq < MAX_FRAMES:
+        start = time.time()
+
+        ret, frame = cap.read()
+        if not ret:
+            continue
+
+        frame = cv2.resize(frame, (320, 320))
+        _, jpg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
+        data = jpg.tobytes()
+
+        send_time = time.time()
+        header = struct.pack("Id", seq, send_time)
+        sock.sendto(header + data, (JETSON_IP, JETSON_PORT))
+
+        with send_times_lock:
+            send_times[seq] = (send_time, len(data))
+
+        seq += 1
+        time.sleep(max(0, (1 / SEND_FPS) - (time.time() - start)))
+
+    print(f"[DONE] Sent {MAX_FRAMES} frames. Waiting 2s for last feedbacks...")
+    time.sleep(2)      
+    save_csv()
+    cap.release()
+    sock.close()
+
+def receive_feedback():
+    global recv_count
+    while True:
+        try:
+            data, _ = sock.recvfrom(1024)
+
+            pc_feedback_time = time.time()
+    
+            seq_recv, jetson_recv_time, jetson_done_time, inference_ms = struct.unpack("Iddd", data)
+
+            with send_times_lock:
+                pc_send_time, jpeg_bytes = send_times.get(seq_recv, (None, 0))
+
+            if pc_send_time is None:
+                continue
+
+            recv_count += 1
+            round_trip_ms = (pc_feedback_time - pc_send_time) * 1000
+
+            row = {
+                "protocol":         "udp",
+                "frame":            seq_recv,
+                "pc_send_time":     pc_send_time,
+                "jetson_recv_time": jetson_recv_time,
+                "jetson_done_time": jetson_done_time,
+                "pc_feedback_time": pc_feedback_time,
+                "inference_ms":     round(inference_ms, 3),
+                "round_trip_ms":    round(round_trip_ms, 3),
+                "count":            recv_count,
+                "jpeg_bytes":       jpeg_bytes,
+                "recv_count":       recv_count,
+            }
+
+            with results_lock:
+                results.append(row)
+
+            print(f"[UDP FEEDBACK] seq={seq_recv} rtt={round_trip_ms:.2f}ms inference={inference_ms:.2f}ms")
+
+        except OSError:
+            break 
+
+threading.Thread(target=receive_feedback, daemon=True).start()
+send_frames()
