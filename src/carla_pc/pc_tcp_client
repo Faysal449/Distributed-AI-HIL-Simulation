@@ -1,0 +1,96 @@
+import socket
+import csv
+import cv2
+import time
+import struct
+from datetime import datetime
+
+JETSON_IP = "192.168.0.102"
+JETSON_PORT = 6000
+
+SEND_FPS = 15           
+JPEG_QUALITY = 60       
+MAX_FRAMES = 200        
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((JETSON_IP, JETSON_PORT))
+
+cap = cv2.VideoCapture(0)
+seq = 0
+
+
+CSV_COLUMNS = [
+    "protocol", "frame", "pc_send_time", "jetson_recv_time",
+    "jetson_done_time", "pc_feedback_time", "inference_ms",
+    "round_trip_ms", "count", "jpeg_bytes"
+]
+results = []
+recv_count = 0
+send_times = {}        
+
+def recv_all(n):
+    data = b''
+    while len(data) < n:
+        packet = sock.recv(n - len(data))
+        if not packet:
+            return None
+        data += packet
+    return data
+
+def save_csv():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"tcp_latency_results_{timestamp}.csv"
+    with open(filename, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(results)
+    print(f"[SAVED] {len(results)} rows → {filename}")
+
+while seq < MAX_FRAMES:
+    start = time.time()
+
+    ret, frame = cap.read()
+    if not ret:
+        continue
+
+    frame = cv2.resize(frame, (320, 320))       # changed from (416, 416)
+    _, jpg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
+    data = jpg.tobytes()
+
+    send_time = time.time()
+    header = struct.pack("IdI", seq, send_time, len(data))
+    sock.sendall(header + data)
+
+    send_times[seq] = (send_time, len(data))
+
+    fb = recv_all(struct.calcsize("Iddd"))      # seq, t_recv, t_done, inference_ms
+    if fb:
+        pc_feedback_time = time.time()
+        seq_recv, jetson_recv_time, jetson_done_time, inference_ms = struct.unpack("Iddd", fb)
+
+        pc_send_time, jpeg_bytes = send_times.get(seq_recv, (send_time, len(data)))
+        recv_count += 1
+        round_trip_ms = (pc_feedback_time - pc_send_time) * 1000
+
+        print(f"[TCP FEEDBACK] seq={seq_recv} rtt={round_trip_ms:.2f}ms inference={inference_ms:.2f}ms")
+
+        results.append({
+            "protocol":         "tcp",
+            "frame":            seq_recv,
+            "pc_send_time":     pc_send_time,
+            "jetson_recv_time": jetson_recv_time,
+            "jetson_done_time": jetson_done_time,
+            "pc_feedback_time": pc_feedback_time,
+            "inference_ms":     round(inference_ms, 3),
+            "round_trip_ms":    round(round_trip_ms, 3),
+            "count":            recv_count,
+            "jpeg_bytes":       jpeg_bytes,
+        })
+
+    seq += 1
+    time.sleep(max(0, (1 / SEND_FPS) - (time.time() - start)))
+
+print(f"[DONE] Sent {MAX_FRAMES} frames.")
+save_csv()
+cap.release()
+sock.close()
