@@ -1,0 +1,132 @@
+import socket
+import csv
+import cv2
+import time
+import struct
+import threading
+from datetime import datetime
+
+JETSON_IP = "192.168.0.102"
+JETSON_PORT = 6000
+
+SEND_FPS = 15
+JPEG_QUALITY = 60
+MAX_FRAMES = 200
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((JETSON_IP, JETSON_PORT))
+
+cap = cv2.VideoCapture(0)
+
+CSV_COLUMNS = [
+    "protocol", "frame", "pc_send_time", "jetson_recv_time",
+    "jetson_done_time", "pc_feedback_time", "inference_ms",
+    "round_trip_ms", "count", "jpeg_bytes"
+]
+results = []
+recv_count = 0
+send_times = {}
+
+# --- Synchronization primitives ---
+results_lock = threading.Lock()         # guards: results, recv_count
+send_times_lock = threading.Lock()      # guards: send_times
+recv_done_event = threading.Event()     # signals receiver thread has finished
+
+
+def recv_all(n):
+    data = b''
+    while len(data) < n:
+        packet = sock.recv(n - len(data))
+        if not packet:
+            return None
+        data += packet
+    return data
+
+
+def save_csv():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"tcp_latency_results_{timestamp}.csv"
+    with open(filename, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(results)
+    print(f"[SAVED] {len(results)} rows → {filename}")
+
+
+# ── Receiver thread ────────────────────────────────────────────────────────────
+def receiver_thread():
+    """Runs concurrently with the sender; collects feedback for every frame."""
+    global recv_count
+
+    fb_size = struct.calcsize("Iddd")   # seq, t_recv, t_done, inference_ms
+
+    for _ in range(MAX_FRAMES):
+        fb = recv_all(fb_size)
+        if fb is None:
+            print("[RECEIVER] Connection closed early.")
+            break
+
+        pc_feedback_time = time.time()
+        seq_recv, jetson_recv_time, jetson_done_time, inference_ms = struct.unpack("Iddd", fb)
+
+        with send_times_lock:
+            pc_send_time, jpeg_bytes = send_times.get(seq_recv, (pc_feedback_time, 0))
+
+        round_trip_ms = (pc_feedback_time - pc_send_time) * 1000
+
+        print(f"[TCP FEEDBACK] seq={seq_recv} rtt={round_trip_ms:.2f}ms "
+              f"inference={inference_ms:.2f}ms")
+
+        with results_lock:
+            recv_count += 1
+            results.append({
+                "protocol":         "tcp",
+                "frame":            seq_recv,
+                "pc_send_time":     pc_send_time,
+                "jetson_recv_time": jetson_recv_time,
+                "jetson_done_time": jetson_done_time,
+                "pc_feedback_time": pc_feedback_time,
+                "inference_ms":     round(inference_ms, 3),
+                "round_trip_ms":    round(round_trip_ms, 3),
+                "count":            recv_count,
+                "jpeg_bytes":       jpeg_bytes,
+            })
+
+    recv_done_event.set()   # unblock main thread's final wait
+
+
+# ── Start receiver before the send loop ───────────────────────────────────────
+t_recv = threading.Thread(target=receiver_thread, daemon=True)
+t_recv.start()
+
+
+# ── Sender loop (main thread) ──────────────────────────────────────────────────
+for seq in range(MAX_FRAMES):
+    start = time.time()
+
+    ret, frame = cap.read()
+    if not ret:
+        continue
+
+    frame = cv2.resize(frame, (320, 320))
+    _, jpg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
+    data = jpg.tobytes()
+
+    send_time = time.time()
+    header = struct.pack("IdI", seq, send_time, len(data))
+    sock.sendall(header + data)
+
+    with send_times_lock:
+        send_times[seq] = (send_time, len(data))
+
+    time.sleep(max(0, (1 / SEND_FPS) - (time.time() - start)))
+
+
+print(f"[DONE] Sent {MAX_FRAMES} frames. Waiting for all feedback…")
+
+# Wait for the receiver to collect every response before saving
+recv_done_event.wait(timeout=30)    # 30 s safety timeout
+
+save_csv()
+cap.release()
+sock.close()
